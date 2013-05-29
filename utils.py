@@ -124,35 +124,20 @@ def readable_call(funcname, args, kwargs, maxlen=None, repl="BIG_ARG"):
     return outstring + ")"
 
 
-def function_wrapper(args_package):
-    (execute_key, funcname, args, kwargs) = args_package
-    print_call(args_package)
-
-    funcattr = None
-    funcsplit = funcname.split(".")
-    # consider http://docs.python.org/dev/library/importlib.html
-    if len(funcsplit) > 1:
-        mod = __import__(".".join(funcsplit[0:-1]))
-        for comp in funcsplit[1:-1]:
-            mod = getattr(mod, comp)
-
-        funcattr = getattr(mod, funcsplit[-1])
-    else:
-        funcattr = globals()[funcsplit[0]]
-
-    return (args_package, funcattr(*args, **kwargs))
+def _test_func(arg1, kwarg1="test"):
+    print arg1, kwarg1
 
 
-def memoize_function_wrapper(args_package):
-    r"""A free-standing function wrapper that supports MemoizeBatch
-    (Why? Multiprocessing pool's map can not handle class functions or generic
-    function arguments to calls in that pool.)
-    Data are saved here rather than handed back to avoid the scenario where
-    all of the output from a batch run is held in memory.
+def func_exec(funcname, args, kwargs, printcall=True):
+    """Execute a function based on its module.name with a given set of
+    arguments and kwargs.
+
+    >>> func_exec("_test_func", ["this works"], {"kwarg1": "ok"})
+    _test_func('this works', kwarg1='ok')
+    this works ok
     """
-    (signature, directory, funcname, args, kwargs) = args_package
-
-    filename = print_call(args_package)
+    if printcall:
+        print readable_call(funcname, args, kwargs)
 
     funcattr = None
     funcsplit = funcname.split(".")
@@ -167,20 +152,7 @@ def memoize_function_wrapper(args_package):
     else:
         funcattr = globals()[funcsplit[0]]
 
-    # some voodoo to prevent lockfile collisions
-    time.sleep(random.uniform(0, 2.))
-    result = funcattr(*args, **kwargs)
-
-    outfile = shelve.open(filename, 'n', protocol=-1)
-    outfile["signature"] = signature
-    outfile["filename"] = filename
-    outfile["funcname"] = funcname
-    outfile["args"] = args
-    outfile["kwargs"] = kwargs
-    outfile["result"] = result
-    outfile.close()
-
-    return signature
+    return funcattr(*args, **kwargs)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,17 @@
 import multiprocessing
 import shelve
+# TODO make this work with hdf5 files across multiple nodes
+# each function call required to write one hd5 "outfile"
+
+
+def _function_wrapper(args_package):
+    """Helper function
+    """
+    (execute_key, funcname, args, kwargs) = args_package
+    readable_call(funcname, args, kwargs)
+    print_call(args_package)
+
+    return (args_package, func_exec(funcname, args, kwargs))
 
 
 class AggregateOutputs(object):
@@ -38,18 +50,21 @@ class AggregateOutputs(object):
         `save_cpu` is the number of CPUs to leave free
         `debug` runs one process at a time because of funny logging/exception
         handling in multiprocessing
+
+        good for many CPU-heavy processes on one node
+        all results stay in memory
         """
         if debug:
             results = []
             for item in self.call_stack:
                 print item
-                results.append(function_wrapper(item))
+                results.append(_function_wrapper(item))
         else:
             num_cpus = multiprocessing.cpu_count() - save_cpu
             if ncpu:
                 num_cpus = ncpu
             pool = multiprocessing.Pool(processes=num_cpus)
-            results = pool.map(function_wrapper, self.call_stack)
+            results = pool.map(_function_wrapper, self.call_stack)
             pool.close()
 
         # after running the jobs reset the batch
@@ -64,5 +79,15 @@ class AggregateOutputs(object):
 
         outshelve.close()
 
+
 def test_function(arg1, arg2, kwarg=None):
     return arg1 + arg2 + repr(kwarg)
+
+
+if __name__ == "__main__":
+    import doctest
+
+    OPTIONFLAGS = (doctest.ELLIPSIS |
+                   doctest.NORMALIZE_WHITESPACE)
+    doctest.testmod(optionflags=OPTIONFLAGS)
+

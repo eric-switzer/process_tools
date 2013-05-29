@@ -14,6 +14,32 @@ import functools
 import os
 import copy
 
+def _function_wrapper(args_package):
+    r"""A free-standing function wrapper that supports MemoizeBatch
+    (Why? Multiprocessing pool's map can not handle class functions or generic
+    function arguments to calls in that pool.)
+    Data are saved here rather than handed back to avoid the scenario where
+    all of the output from a batch run is held in memory.
+    """
+    (signature, directory, funcname, args, kwargs) = args_package
+
+    filename = print_call(args_package)
+
+    # some voodoo to prevent lockfile collisions
+    time.sleep(random.uniform(0, 2.))
+    result = func_exec(funcname, args, kwargs)
+
+    outfile = shelve.open(filename, 'n', protocol=-1)
+    outfile["signature"] = signature
+    outfile["filename"] = filename
+    outfile["funcname"] = funcname
+    outfile["args"] = args
+    outfile["kwargs"] = kwargs
+    outfile["result"] = result
+    outfile.close()
+
+    return signature
+
 
 memoize_directory = "/mnt/raid-project/gmrt/eswitzer/persistent_memoize/"
 def memoize_persistent(func):
