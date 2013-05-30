@@ -134,6 +134,25 @@ def useless_loop(input_var, arg1='a', arg2=2):
     return (input_var, arg1, arg2)
 
 
+def _make_serializable_exaple(item):
+    r"""Serialize an ndarray extended by and .info field"""
+    try:
+        infofield = tuple(sorted(item.info.items()))
+        fullarray = (item.tolist(), infofield)
+        rehashed = hashlib.sha224(pickle.dumps(fullarray)).hexdigest()
+    except:
+        rehashed = item
+
+    return rehashed
+
+
+def _repackage_kiyo(kiyo_map_split):
+    combined_kiyo = algebra.make_vect(kiyo_map_split[0], axis_names=('freq', 'ra', 'dec'))
+    combined_kiyo.info = kiyo_map_split[1]
+
+    return combined_kiyo
+
+
 if __name__ == "__main__":
     print fibonacci(5)
     print fibonacci(5)
