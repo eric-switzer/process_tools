@@ -121,10 +121,6 @@ def readable_call(funcname, args, kwargs, maxlen=None, repl="BIG_ARG"):
     'test_func()'
 
     Previous ways this was used:
-    (signature, directory, funcname, args, kwargs) = args_package
-    filename = "%s/%s.shelve" % (directory, signature)
-    filename = re.sub('/+', '/', filename)
-    print "%s -> %s" % (readable, filename)
     (execute_key, funcname, args, kwargs) = args_package
     print "%s: %s" % (execute_key, readable)
     TODO: deal with spurious commas
