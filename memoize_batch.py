@@ -1,21 +1,29 @@
-def _function_wrapper(args_package):
-    r"""A free-standing function wrapper that supports MemoizeBatch
+import shelve
+import utils
+import multiprocessing
+import copy
+import cPickle as pickle
+import hashlib
+import re
 
-    (Why? Multiprocessing pool's map can not handle class functions or generic
-    function arguments to calls in that pool.)
+
+def _function_wrapper(args_package):
+    """Allow multiprocessing Pool to call generic functions/args/kwargs.
+
     Data are saved here rather than handed back to avoid the scenario where
     all of the output from a batch run is held in memory.
     """
-    (signature, directory, funcname, args, kwargs) = args_package
+    (identifier, directory, funcname, args, kwargs) = args_package
 
-    filename = print_call(args_package)
+    readable = utils.readable_call(funcname, args, kwargs)
+    filename = "%s/%s.shelve" % (directory, identifier)
+    filename = re.sub('/+', '/', filename)
+    print "%s -> %s" % (readable, filename)
 
-    # some voodoo to prevent lockfile collisions
-    time.sleep(random.uniform(0, 2.))
-    result = func_exec(funcname, args, kwargs)
+    result = utils.func_exec(funcname, args, kwargs, printcall=False)
 
     outfile = shelve.open(filename, 'n', protocol=-1)
-    outfile["signature"] = signature
+    outfile["identifier"] = identifier
     outfile["filename"] = filename
     outfile["funcname"] = funcname
     outfile["args"] = args
@@ -23,29 +31,14 @@ def _function_wrapper(args_package):
     outfile["result"] = result
     outfile.close()
 
-    return signature
+    return identifier
 
 
 class MemoizeBatch(object):
-    r"""A class to manage a large batch of function calls and outputs.
+    r"""Manage/cache a large batch of function calls
 
-    When to use this: you have a function that runs slowly and would like to
-    run it many times, trivially parallelized over many parameters. A common
-    problem is that one code typically does all the loops for the batch
-    processing -> dump to files, and the a second code reads the files to make
-    a final product. There is overhead in naming the files and also in the fact
-    that the batch caller loops are often structurally different from the loops
-    over parameters in the final consumer.
-
-    This class circumvents these issues by assigning an SHA hash to the
-    arguments and writing a file by that name. If those arguments have been
-    called, it can retrieve the output. Note that these have different SHA
-    signatures for func(arg=True): call func(arg=True) and call func()
-    (even though the result will be the same.) Also, dictionaries should not
-    be given as arguments because they are not sorted. Simplejson has
-    sort_keys=True but can not serialize numpy. Consider a more general
-    argument serialization that uses numpy .tolist() and json, or does a
-    nested sort and uses pickle.
+    Use this when you have a large set of function evaluations you would like
+    to perform in parallel an use later from a cache.
 
     To specify the batch of parameters to run over, initialize the class with
     `generate=True`. Then when execute() is called, it stacks up the list of
@@ -57,23 +50,36 @@ class MemoizeBatch(object):
     (default) and then call execute in the same way as above. The cached
     results will be returned by looking up the hash for the arguments.
 
+    Notes:
+    The output from each function call must be serializable. It is saved to a
+    file with a unique SHA224 identifier based on its function name, args, and
+    kwargs.
+
+    For a function func(arg=True), the identifiers for func(arg=True) and
+    func() will be different even if their outputs are the same.
+
+    Dictionaries should not be given as arguments. They are not sorted here and
+    may result in different identifiers for the same arguments. If you are
+    arguments that are json-serializable, consider adding Simplejson's
+    sort_keys=True to allow dictionary arguments. This will not work for numpy.
+
     Example to generate the cache table:
-    >>> caller1 = MemoizeBatch("trial_function", "./testdata/", generate=True)
-    >>> caller1.execute("ok",3, arg1=True, arg2=3)
-    '4a1e33dbab4b660fcddbe98d604d87ed28a3dce9c4844190df3c05c5'
+    >>> caller1 = MemoizeBatch("memoize_batch.trial_function", "./", generate=True)
+    >>> caller1.execute("ok", 3, arg1=True, arg2=3)
+    '12412d7d81bd3bd6c1a86d93ee2ca06f0af35bdfa2a37e86e762557e'
     >>> import numpy as np
     >>> bins = np.arange(0,1, 0.2)
     >>> caller1.execute(5, "ok2", arg1="stringy", arg2=bins)
-    'cc9dd30e2b656e96bfdec98a219c030d5dc4792391bdfa54ad209d3c'
+    'a4bcca2aa43785944dfaf4ef692931e274956ab11ee7b48c6cbf6a59'
     >>> caller1.execute("ok2",4)
-    '5b81c329717a428261f3bebe2b4b5bba'
+    '103a79b6e8a44796ad1b4657c3de31ee38cabc0f1a2810667a297ae4'
     >>> caller1.multiprocess_stack()
-    ['1d6e885be47e6f350befb10fd4b28318',
-     'fc3eb86900a1f325fb3369d7f686d475',
-     '5b81c329717a428261f3bebe2b4b5bba']
+    ['12412d7d81bd3bd6c1a86d93ee2ca06f0af35bdfa2a37e86e762557e',
+     'a4bcca2aa43785944dfaf4ef692931e274956ab11ee7b48c6cbf6a59',
+     '103a79b6e8a44796ad1b4657c3de31ee38cabc0f1a2810667a297ae4']
 
     Example to use the cache in later computation:
-    >>> caller2 = MemoizeBatch("trial_function", "./testdata/")
+    >>> caller2 = MemoizeBatch("memoize_batch.trial_function", "./")
     >>> caller2.execute("ok",3, arg1=True, arg2=3)
     ('ok', 3, True, 3)
     >>> caller2.execute(5, "ok2", arg1="stringy", arg2=bins)
@@ -81,18 +87,20 @@ class MemoizeBatch(object):
     >>> caller2.execute("ok2",4)
     ('ok2', 4, 'e', 'r')
 
+    TODO:
+    add regenerate mode?
+    assigning run ids to dictionaries of numpy objects: .tolist and json?,
+    nested sort + pickle?
     """
-    # TODO: add regenerate option for generate mode:
-    # (check to see if the result exists)
     def __init__(self, funcname, directory, generate=False, verbose=False):
         r"""
-        Parameters:
-        -----------
         funcname: string
             the function name pointer in one of the forms
             [etc].[package].[module].[function_name]
+
         directory: string
             directory in which to write the output database
+
         generate: boolean
             choose this to generate the result cache
         """
@@ -103,27 +111,27 @@ class MemoizeBatch(object):
         self.verbose = verbose
 
     def execute(self, *args, **kwargs):
-        r"""if one of the arguments is "inifile" expand that file reference
-        into a string which is added to the argument checksum
+        r"""Generate or access data from the function call.
+
+        Note:
+        If an "inifile" is one of the function arguments, read that and include
+        it in the checksum for the function call identifier.
+
         also see stackoverflow's: computing-an-md5-hash-of-a-data-structure
         based on: how-to-memoize-kwargs
         """
         kwini = copy.deepcopy(kwargs)
         if "inifile" in kwargs:
-            #if self.verbose:
-            #    print "MemoizeBatch: expanding inifile into argument checksum"
-
             open_inifile = open(kwargs["inifile"], "r")
             kwini["inifile"] = "".join(open_inifile.readlines())
             open_inifile.close()
 
-        # TODO: add support for more generic arguments (numpy derivatives)
         argpkl = pickle.dumps((self.funcname, args,
                                tuple(sorted(kwini.items()))), -1)
 
-        arghash = hashlib.sha224(argpkl).hexdigest()
+        identifier = hashlib.sha224(argpkl).hexdigest()
 
-        args_package = (arghash, self.directory,
+        args_package = (identifier, self.directory,
                         self.funcname, args, kwargs)
 
         if self.verbose:
@@ -131,11 +139,11 @@ class MemoizeBatch(object):
 
         if self.generate:
             self.call_stack.append(args_package)
-            retval = arghash
+            retval = identifier
         else:
             # TODO: raise NotCalculated?
-            # TODO: check args, kwargs with requested?
-            filename = "%s/%s.shelve" % (self.directory, arghash)
+            filename = "%s/%s.shelve" % (self.directory, identifier)
+            filename = re.sub('/+', '/', filename)
             input_shelve = shelve.open(filename, "r", protocol=-1)
             retval = input_shelve['result']
             input_shelve.close()
@@ -153,12 +161,13 @@ class MemoizeBatch(object):
             result = []
             for item in self.call_stack:
                 print_call(item)
-                result.append(function_wrapper(item))
+                result.append(_function_wrapper(item))
         else:
             num_cpus = multiprocessing.cpu_count() - save_cpu
             pool = multiprocessing.Pool(processes=num_cpus)
-            result = pool.map(function_wrapper, self.call_stack)
+            result = pool.map(_function_wrapper, self.call_stack)
             pool.close()
+            pool.join()
 
         print result
 
@@ -180,22 +189,9 @@ def trial_function(thing1, thing2, arg1="e", arg2="r"):
     return thing1, thing2, arg1, arg2
 
 
-@memoize_persistent
-def useless_loop(input_var, arg1='a', arg2=2):
-    r"""Useless function to test the memoize decorator"""
-    return (input_var, arg1, arg2)
-
-
 if __name__ == "__main__":
     import doctest
 
     OPTIONFLAGS = (doctest.ELLIPSIS |
                    doctest.NORMALIZE_WHITESPACE)
     doctest.testmod(optionflags=OPTIONFLAGS)
-
-    print useless_loop(10, arg1=3, arg2='b')
-    print useless_loop(10, arg2='b', arg1=4)
-    print useless_loop("w", arg2="ok")
-    print useless_loop(10)
-    print useless_loop("w")
-

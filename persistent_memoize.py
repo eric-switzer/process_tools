@@ -49,10 +49,10 @@ def memoize_persistent(func):
         argpkl = pickle.dumps((funcname, rehashed,
                                tuple(sorted(kwargs.items()))), -1)
 
-        arghash = hashlib.sha224(argpkl).hexdigest()
+        identifier = hashlib.sha224(argpkl).hexdigest()
 
         readable = utils.readable_call(funcname, rehashed, kwargs)
-        filename = "%s/%s.shelve" % (memoize_directory, arghash)
+        filename = "%s/%s.shelve" % (memoize_directory, identifier)
         filename = re.sub('/+', '/', filename)
         print "%s -> %s" % (readable, filename)
 
@@ -97,7 +97,7 @@ def memoize_persistent(func):
             retval = func(*args, **kwargs)
 
             outfile = shelve.open(filename, "n", protocol=-1)
-            outfile["signature"] = arghash
+            outfile["signature"] = identifier
             outfile["filename"] = filename
             outfile["funcname"] = funcname
             outfile["args"] = rehashed
@@ -128,6 +128,18 @@ def fibonacci(n):
     return fibonacci(n-1) + fibonacci(n-2)
 
 
+@memoize_persistent
+def useless_loop(input_var, arg1='a', arg2=2):
+    r"""Useless function to test the memoize decorator"""
+    return (input_var, arg1, arg2)
+
+
 if __name__ == "__main__":
     print fibonacci(5)
     print fibonacci(5)
+    print useless_loop(10, arg1=3, arg2='b')
+    print useless_loop(10, arg2='b', arg1=4)
+    print useless_loop("w", arg2="ok")
+    print useless_loop(10)
+    print useless_loop("w")
+
