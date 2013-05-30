@@ -1,7 +1,7 @@
 process_tools
 =============
 
-Tools for persistence, trivial parallel jobs. Under development.
+Tools for persistence, trivial parallel jobs.
 
 * `memoize`: standard in-memory memoize decorator implementation
 * `persistent_memoize`: memoize decorator that caches results to a file for later use
