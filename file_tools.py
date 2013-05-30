@@ -13,7 +13,7 @@ import h5py
 # TODO: use path_properties to check on files other functions here try to write
 
 
-def traverse_data_dict(data_dict, h5pyobj, path=()):
+def _traverse_data_dict(data_dict, h5pyobj, path=()):
     for data_key in data_dict:
         current_path = path+(data_key,)
         if isinstance(data_dict[data_key], np.ndarray):
@@ -23,11 +23,11 @@ def traverse_data_dict(data_dict, h5pyobj, path=()):
             pass
         else:
             sub_h5pyobj = h5pyobj.create_group(data_key)
-            traverse_data_dict(data_dict[data_key],
+            _traverse_data_dict(data_dict[data_key],
                                              sub_h5pyobj, current_path)
 
 
-def print_data_dict(data_dict, depth=""):
+def _print_data_dict(data_dict, depth=""):
     for data_key in data_dict:
         current_depth = depth + " "
         try:
@@ -40,7 +40,7 @@ def print_data_dict(data_dict, depth=""):
         except AttributeError:
             if isinstance(data_key, (str, unicode)):
                 print "%s-%s:" % (current_depth, data_key)
-                print_data_dict(data_dict[data_key], current_depth)
+                _print_data_dict(data_dict[data_key], current_depth)
 
 
 def convert_numpytree_hdf5(data_dict, filename):
@@ -67,8 +67,8 @@ def convert_numpytree_hdf5(data_dict, filename):
     """
     outfile = h5py.File(filename, "w")
     print "writing hd5file %s from dict tree" % filename
-    traverse_data_dict(data_dict, outfile)
-    print_data_dict(outfile)
+    _traverse_data_dict(data_dict, outfile)
+    _print_data_dict(outfile)
     outfile.close()
 
 
@@ -103,8 +103,6 @@ def print_multicolumn(*args, **kwargs):
     outfd.close()
 
 
-# The next three functions are from kiyopy utils but are here to avoid
-# installed package stuff on scinet, which is a pain
 def mkdir_p(path) :
     """Same functionality as shell command mkdir -p."""
     try:

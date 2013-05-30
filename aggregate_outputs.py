@@ -8,6 +8,8 @@ import time
 
 def _function_wrapper(args_package):
     """helper to wrap function evaluation
+    TODO: use multiprocessing logger in case of error?
+    multiprocessing.get_logger().error("f%r failed" % (arg_kwargs,))
     """
     (execute_key, funcname, args, kwargs) = args_package
     return (args_package, utils.func_exec(funcname, args, kwargs))
@@ -46,8 +48,8 @@ class AggregateOutputs(object):
 
         self.call_stack.append(args_package)
 
-    def multiprocess_stack(self, filename=None, save_cpu=4,
-                                 debug=False, ncpu=8):
+    def multiprocess_stack(self, filename=None, save_cpu=None,
+                           debug=False, ncpu=8):
         r"""process the call stack built up by 'execute' calls using
         multiprocessing.
 
@@ -78,6 +80,7 @@ class AggregateOutputs(object):
             pool = multiprocessing.Pool(processes=num_cpus)
             results = pool.map(_function_wrapper, self.call_stack)
             pool.close()
+            pool.join()
 
         # after running the jobs reset the batch
         self.call_stack = []

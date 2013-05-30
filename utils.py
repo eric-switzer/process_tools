@@ -1,5 +1,39 @@
 import time
+import string
+import os
 import logging as log
+
+
+def get_env(name):
+    r"""retrieve a selected environment variable"""
+    try:
+        env_var = os.environ[name]
+    except KeyError:
+        print "your environment variable %s is not set" % name
+        sys.exit()
+
+    return env_var
+
+
+def repl_bracketed_env(string_in):
+    r"""replace any []-enclosed all caps subtring [ENV_VAR] with its
+    environment vairable
+
+    >>> repl_bracketed_env("this is your path: [PATH]")
+    'this is your path: ...'
+    """
+    ttable = string.maketrans("[]", "[[")
+    breakup = string_in.translate(ttable).split("[")
+    retval = []
+    for item in breakup:
+        if item.isupper():
+            item = get_env(item)
+
+        retval.append(item)
+
+    retval = ''.join(retval)
+
+    return retval
 
 
 def log_timing_func():
