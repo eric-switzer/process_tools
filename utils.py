@@ -2,7 +2,17 @@ import time
 import string
 import os
 import logging as log
+import datetime
 
+def proc_info(title):
+    print title
+    print 'module name:', __name__
+    print 'parent process:', os.getppid()
+    print 'process id:', os.getpid()
+
+
+def timestamp():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
 def get_env(name):
     r"""retrieve a selected environment variable"""
