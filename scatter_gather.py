@@ -5,8 +5,11 @@ import time
 import hashlib
 import pickle
 import shelve
+import process_daemon as pd
 """
 multiprocessing scatter gather functions
+
+make sure this will also work in single-threaded mode
 """
 
 def example_function(arg1, arg2, kwarg=None):
@@ -53,7 +56,7 @@ class ScatterGather(object):
         execute_key = kwargs["execute_key"]
         del kwargs["execute_key"]
 
-        jobfile_name = "%s.job" % identifier
+        jobfile_name = "%s/%s.job" % (pd.job_directory, identifier)
         job_shelve = shelve.open(jobfile_name, "n", protocol=-1)
         job_shelve['funcname'] = self.funcname
         job_shelve['args'] = args
@@ -68,6 +71,10 @@ class ScatterGather(object):
         self.call_stack.append(identifier)
 
     def gather(self, outfile):
+        # wait for the product files to appear
+        # also tack the logs together
+        # then delete the scatter files
+        # did all the jobs run?
         print outfile
 
 

@@ -19,15 +19,31 @@ import sys
 import StringIO as StringIO
 import utils
 import shelve
+job_directory = "./jobs/"
 
 
-def _function_wrapper(args_package):
-    """helper to wrap function evaluation
-    TODO: use multiprocessing logger in case of error?
-    multiprocessing.get_logger().error("f%r failed" % (arg_kwargs,))
-    """
-    (execute_key, funcname, args, kwargs) = args_package
-    return (args_package, utils.func_exec(funcname, args, kwargs))
+def process_job(job_filename):
+    basename = os.path.splitext(job_filename)[0]
+
+    log_filename = "%s.log" % basename
+    run_filename = "%s.run" % basename
+    done_filename = "%s.done" % basename
+
+    os.rename(job_filename, run_filename)
+    jobspec = shelve.open(run_filename, protocol=-1)
+    print jobspec
+    funcname = jobspec['funcname']
+    args = jobspec['args']
+    kwargs = jobspec['kwargs']
+
+    retval = utils.func_exec(funcname, args, kwargs)
+    jobspec['retval'] = retval
+    jobspec.close()
+    os.rename(run_filename, done_filename)
+
+    outlog = open(log_filename, "w")
+    outlog.write(sys.stdout.getvalue())
+    outlog.close()
 
 
 class Worker(Process):
@@ -52,31 +68,12 @@ class Worker(Process):
             utils.proc_info("Process log for job_filename %s" % job_filename)
 
             try:
-                basename = os.path.splitext(job_filename)[0]
-
-                log_filename = "%s.log" % basename
-                run_filename = "%s.run" % basename
-                done_filename = "%s.done" % basename
-
-                os.rename(job_filename, run_filename)
-                jobspec = shelve.open(run_filename, protocol=-1)
-                print jobspec
-                funcname = jobspec['funcname']
-                args = jobspec['args']
-                kwargs = jobspec['kwargs']
-
-                retval = utils.func_exec(funcname, args, kwargs)
-                jobspec['retval'] = retval
-                jobspec.close()
-                os.rename(run_filename, done_filename)
-
-                outlog = open(log_filename, "w")
-                outlog.write(sys.stdout.getvalue())
-                outlog.close()
-                sys.stdout = sys.__stdout__
-                print utils.timestamp(), "Finished: ", job_filename
+                process_job(job_filename)
             except Exception, e:
                 print e
+
+            sys.stdout = sys.__stdout__
+            print utils.timestamp(), "Finished: ", job_filename
 
 
 def start_workers(options):
@@ -101,7 +98,7 @@ def start_workers(options):
             break
 
         # else, look for job files
-        job_files = glob.glob('*.job')
+        job_files = glob.glob('%s/*.job' % job_directory)
         if len(job_files) > 0:
             print job_files
             for jfile in job_files:
