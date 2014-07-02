@@ -102,7 +102,9 @@ def start_workers(options):
         if len(job_files) > 0:
             print job_files
             for jfile in job_files:
-                request_queue.put(jfile)
+                # do not start processing a file as scatter is writing the job
+                if "__db." not in jfile:
+                    request_queue.put(jfile)
 
         # don't press the filesystem looking for new jobs
         time.sleep(0.1)

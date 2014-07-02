@@ -5,6 +5,8 @@ import time
 import hashlib
 import pickle
 import shelve
+import glob
+import os
 import process_daemon as pd
 """
 multiprocessing scatter gather functions
@@ -13,7 +15,7 @@ make sure this will also work in single-threaded mode
 """
 
 def example_function(arg1, arg2, kwarg=None):
-    time.sleep(1)
+    time.sleep(2)
     print "This is a test function", arg1
     return arg1 + arg2, kwarg
 
@@ -32,6 +34,7 @@ class ScatterGather(object):
     >>> test_sg.scatter("a1", "a2", execute_key="one")
     >>> test_sg.scatter("a3", "a4", kwarg="ok", execute_key="two")
     >>> test_sg.scatter("a5", "a6", kwarg="no", execute_key="three")
+    >>> test_sg.gather()
     """
     def __init__(self, funcname, verbose=False):
         self.call_stack = []
@@ -57,6 +60,16 @@ class ScatterGather(object):
         del kwargs["execute_key"]
 
         jobfile_name = "%s/%s.job" % (pd.job_directory, identifier)
+        donefile_name = "%s/%s.done" % (pd.job_directory, identifier)
+
+        # first remove any lurking completed jobs
+        try:
+            os.remove(donefile_name)
+            os.remove(jobfile_name)
+        except OSError:
+            if self.verbose:
+                print "all clear: ", donefile_name
+
         job_shelve = shelve.open(jobfile_name, "n", protocol=-1)
         job_shelve['funcname'] = self.funcname
         job_shelve['args'] = args
@@ -70,17 +83,46 @@ class ScatterGather(object):
 
         self.call_stack.append(identifier)
 
-    def gather(self, outfile):
+    def gather(self):
         # wait for the product files to appear
         # also tack the logs together
         # then delete the scatter files
         # did all the jobs run?
-        print outfile
+        while len(self.call_stack):
+            # wait for the results to roll in
+            time.sleep(0.1)
 
+            done_files = glob.glob('%s/*.done' % pd.job_directory)
+
+            if self.verbose:
+                print self.call_stack
+                print done_files
+
+            for filename in done_files:
+                job_shelve = shelve.open(filename, "r", protocol=-1)
+                try:
+                    jobid = job_shelve['identifier']
+                    if jobid in self.call_stack:
+                        print filename, job_shelve['tag'], job_shelve['retval']
+                        self.call_stack = [ x for x in self.call_stack \
+                                            if x != jobid]
+                    else:
+                        print "found a job that was not requested"
+                except KeyError:
+                    print "did not find return value in %s" % filename
+
+                os.remove(filename)
 
 if __name__ == "__main__":
     import doctest
 
-    OPTIONFLAGS = (doctest.ELLIPSIS |
-                   doctest.NORMALIZE_WHITESPACE)
-    doctest.testmod(optionflags=OPTIONFLAGS)
+    test_sg = ScatterGather("scatter_gather.example_function")
+    test_sg.scatter("a1", "a2")
+    test_sg.scatter("a1", "a2", execute_key="one")
+    test_sg.scatter("a3", "a4", kwarg="ok", execute_key="two")
+    test_sg.scatter("a5", "a6", kwarg="no", execute_key="three")
+    test_sg.gather()
+
+    #OPTIONFLAGS = (doctest.ELLIPSIS |
+    #               doctest.NORMALIZE_WHITESPACE)
+    #doctest.testmod(optionflags=OPTIONFLAGS)
