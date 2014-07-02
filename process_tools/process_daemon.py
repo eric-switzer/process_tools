@@ -11,7 +11,6 @@ the function is run; with outputs:
 to extend this for e.g. PBS, have the running process check for its cpu ID
 """
 from multiprocessing import Process, Queue
-from optparse import OptionParser
 import time
 import os
 import glob
@@ -109,28 +108,3 @@ def start_workers(options):
         # don't press the filesystem looking for new jobs
         time.sleep(0.1)
 
-if __name__ == '__main__':
-    r"""main command-line interface"""
-
-    parser = OptionParser(usage="usage: %prog [options]",
-                          version="%prog 1.0")
-
-    parser.add_option("-k", "--killfile",
-                      action="store",
-                      dest="killfile",
-                      default="kill",
-                      help="If this file exists, shutdown",)
-
-    parser.add_option("-n", "--n_worker",
-                      action="store",
-                      dest="n_worker",
-                      default=5,
-                      help="Number of workers to spawn",)
-
-    (options, args) = parser.parse_args()
-    optdict = vars(options)
-
-    if len(args) != 0:
-        parser.error("wrong number of arguments")
-
-    start_workers(optdict)

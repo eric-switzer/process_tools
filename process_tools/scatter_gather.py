@@ -116,13 +116,6 @@ class ScatterGather(object):
 if __name__ == "__main__":
     import doctest
 
-    test_sg = ScatterGather("scatter_gather.example_function")
-    test_sg.scatter("a1", "a2")
-    test_sg.scatter("a1", "a2", execute_key="one")
-    test_sg.scatter("a3", "a4", kwarg="ok", execute_key="two")
-    test_sg.scatter("a5", "a6", kwarg="no", execute_key="three")
-    test_sg.gather()
-
-    #OPTIONFLAGS = (doctest.ELLIPSIS |
-    #               doctest.NORMALIZE_WHITESPACE)
-    #doctest.testmod(optionflags=OPTIONFLAGS)
+    OPTIONFLAGS = (doctest.ELLIPSIS |
+                   doctest.NORMALIZE_WHITESPACE)
+    doctest.testmod(optionflags=OPTIONFLAGS)
