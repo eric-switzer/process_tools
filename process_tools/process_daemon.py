@@ -68,15 +68,15 @@ class Worker(Process):
 
             try:
                 process_job(job_filename)
-            except Exception, e:
-                print e
+            except Exception, error:
+                print Exception, error
 
             sys.stdout = sys.__stdout__
             print utils.timestamp(), "Finished: ", job_filename
 
 
 def start_workers(options):
-    kill_watchfile = options['killfile']
+    kill_watchfile = "%s/%s" % (job_directory, options['killfile'])
     n_worker = int(options['n_worker'])
 
     request_queue = Queue()
@@ -103,7 +103,13 @@ def start_workers(options):
             for jfile in job_files:
                 # do not start processing a file as scatter is writing the job
                 if "__db." not in jfile:
-                    request_queue.put(jfile)
+                    basename = os.path.splitext(jfile)[0]
+
+                    queue_filename = "%s.queue" % basename
+                    os.rename(jfile, queue_filename)
+
+                    print "adding %s to queue" % queue_filename
+                    request_queue.put(queue_filename)
 
         # don't press the filesystem looking for new jobs
         time.sleep(0.1)

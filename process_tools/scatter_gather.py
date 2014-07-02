@@ -14,12 +14,6 @@ multiprocessing scatter gather functions
 make sure this will also work in single-threaded mode
 """
 
-def example_function(arg1, arg2, kwarg=None):
-    time.sleep(2)
-    print "This is a test function", arg1
-    return arg1 + arg2, kwarg
-
-
 def _make_serializable(item):
     """repackage an object so that it can be pickle.dumps()"""
     return item
