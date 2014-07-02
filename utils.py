@@ -12,7 +12,7 @@ def proc_info(title):
 
 
 def timestamp():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def get_env(name):
     r"""retrieve a selected environment variable"""
