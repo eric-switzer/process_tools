@@ -4,6 +4,7 @@ Utilities to read/write/print a dictionary tree of array data to an hdf5 file
 import numpy as np
 import h5py
 import os
+import tree_tools as tt
 
 
 def _traverse_data_dict(data_dict, h5pyobj, path=()):
@@ -134,6 +135,17 @@ def convert_hdf5_dict_tree(h5pyobj, path=(), silent=True):
         _print_dict_tree(outdict)
 
     return outdict
+
+
+def aggregate_hdf5(h5pyobj):
+    """Aggregate the resultant data structures from each job
+    """
+    agg_list = []
+    for entry_name in h5pyobj.keys():
+        data_tree = convert_hdf5_dict_tree(h5pyobj[entry_name])
+        agg_list.append(data_tree)
+
+    return tt.aggregate_tree(agg_list)
 
 
 if __name__ == "__main__":
