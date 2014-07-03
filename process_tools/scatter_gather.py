@@ -7,6 +7,7 @@ import pickle
 import shelve
 import glob
 import os
+import h5py_tree as ht
 import process_daemon as pd
 """
 multiprocessing scatter gather functions
@@ -77,11 +78,17 @@ class ScatterGather(object):
 
         self.call_stack.append(identifier)
 
-    def gather(self):
-        # wait for the product files to appear
-        # also tack the logs together
-        # then delete the scatter files
-        # did all the jobs run?
+    def gather(self, outfile, path="", log_filename=None):
+        try:
+            os.remove(outfile)
+        except OSError:
+            if self.verbose:
+                print "no pre-existing output"
+
+        if log_filename:
+            logfile = open(log_filename, "w")
+
+        # also tack the logs together, then remove logs
         while len(self.call_stack):
             # wait for the results to roll in
             time.sleep(0.1)
@@ -96,16 +103,32 @@ class ScatterGather(object):
                 job_shelve = shelve.open(filename, "r", protocol=-1)
                 try:
                     jobid = job_shelve['identifier']
+                    lname = "%s/%s.log" % (pd.job_directory, jobid)
                     if jobid in self.call_stack:
-                        print filename, job_shelve['tag'], job_shelve['retval']
+                        h5path = path + "/" + job_shelve['tag']
+                        ht.convert_numpytree_hdf5(job_shelve['retval'],
+                                                  outfile, path=h5path)
+                        if self.verbose:
+                            print filename, job_shelve['tag'], \
+                                  job_shelve['retval']
+
                         self.call_stack = [ x for x in self.call_stack \
                                             if x != jobid]
+
+                        if log_filename:
+                            lfile = open(lname, "r")
+                            logfile.write(lfile.read())
+
+                        os.remove(filename)
+                        os.remove(lname)
                     else:
                         print "found a job that was not requested"
                 except KeyError:
                     print "did not find return value in %s" % filename
 
-                os.remove(filename)
+        if log_filename:
+            logfile.close()
+
 
 if __name__ == "__main__":
     import doctest

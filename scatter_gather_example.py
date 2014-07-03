@@ -1,15 +1,18 @@
 from process_tools import scatter_gather as sg
 import time
+import numpy as np
 
-def example_function(arg1, arg2, kwarg=None):
+def example_function(arg1, kwarg=0.):
     time.sleep(2)
-    print "running", arg1, arg2, kwarg
-    return arg1 + arg2, kwarg
+    print "running", arg1, kwarg
+    rand = np.random.uniform(size=(100,100))
+    rerand = rand * arg1 + kwarg
+    return {"random": rand, "rescaled": rerand}
 
 if __name__ == "__main__":
     test_sg = sg.ScatterGather("scatter_gather_example.example_function")
-    test_sg.scatter("a1", "a2")
-    test_sg.scatter("a1", "a2", execute_key="one")
-    test_sg.scatter("a3", "a4", kwarg="ok", execute_key="two")
-    test_sg.scatter("a5", "a6", kwarg="no", execute_key="three")
-    test_sg.gather()
+    test_sg.scatter(1.)
+    test_sg.scatter(2., execute_key="one")
+    test_sg.scatter(3., kwarg=1., execute_key="two")
+    test_sg.scatter(4., kwarg=2., execute_key="three")
+    test_sg.gather("test.hdf5", log_filename="test.log")
