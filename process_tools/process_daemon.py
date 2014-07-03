@@ -38,11 +38,12 @@ def process_job(job_filename):
     retval = utils.func_exec(funcname, args, kwargs)
     jobspec['retval'] = retval
     jobspec.close()
-    os.rename(run_filename, done_filename)
 
     outlog = open(log_filename, "w")
     outlog.write(sys.stdout.getvalue())
     outlog.close()
+
+    os.rename(run_filename, done_filename)
 
 
 class Worker(Process):
