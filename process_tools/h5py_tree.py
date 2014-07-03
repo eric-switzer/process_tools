@@ -139,6 +139,7 @@ def convert_hdf5_dict_tree(h5pyobj, path=(), silent=True):
 
 def aggregate_hdf5(h5pyobj):
     """Aggregate the resultant data structures from each job
+    TODO: add a wildcard so that not all keys are used
     """
     agg_list = []
     for entry_name in h5pyobj.keys():
