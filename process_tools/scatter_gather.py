@@ -105,6 +105,7 @@ class ScatterGather(object):
                     jobid = job_shelve['identifier']
                     lname = "%s/%s.log" % (pd.job_directory, jobid)
                     if jobid in self.call_stack:
+                        print "finished ", job_shelve['tag']
                         h5path = path + "/" + job_shelve['tag']
                         ht.convert_numpytree_hdf5(job_shelve['retval'],
                                                   outfile, path=h5path)

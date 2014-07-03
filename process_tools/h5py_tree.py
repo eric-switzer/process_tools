@@ -41,7 +41,7 @@ def _print_hd5_tree(data_dict, depth=""):
                 _print_hd5_tree(data_dict[data_key], current_depth)
 
 
-def convert_numpytree_hdf5(data_dict, filename, path=""):
+def convert_numpytree_hdf5(data_dict, filename, path="", silent=True):
     r"""Convert a numpy tree of numpy objects to and hd5 file
     Non-numpy data are not recorded!
 
@@ -54,7 +54,7 @@ def convert_numpytree_hdf5(data_dict, filename, path=""):
     >>> tdict['dir_a']['dir_c']['data_c'] = np.zeros((5,5))
     >>> tdict['dir_b']['cats'] = "this"
     >>> tdict['dir_b']['dogs'] = [1,2,3,4]
-    >>> convert_numpytree_hdf5(tdict, "test.hd5", path="path/to")
+    >>> convert_numpytree_hdf5(tdict, "test.hd5", path="path/to", silent=False)
     writing hd5file test.hd5 from dict tree
      -path:
       -to:
@@ -66,10 +66,15 @@ def convert_numpytree_hdf5(data_dict, filename, path=""):
     >>> os.remove("test.hd5")
     """
     outfile = h5py.File(filename, "a")
-    print "writing hd5file %s from dict tree" % filename
+
+    if not silent:
+        print "writing hd5file %s from dict tree" % filename
+
     path = tuple(path.split("/"))
     _traverse_data_dict(data_dict, outfile, path=path)
-    _print_hd5_tree(outfile)
+    if not silent:
+        _print_hd5_tree(outfile)
+
     outfile.close()
 
 
@@ -100,7 +105,7 @@ def _print_dict_tree(data_dict, depth=""):
                 print "%s->%s %s" % (current_depth, data_key, data_here)
 
 
-def convert_hdf5_dict_tree(h5pyobj, path=()):
+def convert_hdf5_dict_tree(h5pyobj, path=(), silent=True):
     r"""
     pull a sub-tree out of an hdf5 file and put into dictionary tree
 
@@ -108,7 +113,7 @@ def convert_hdf5_dict_tree(h5pyobj, path=()):
     >>> tdict['dir_a'] = {}
     >>> tdict['data_a'] = np.zeros((3,3))
     >>> tdict['dir_a']['data_b'] = np.zeros((4,4))
-    >>> convert_numpytree_hdf5(tdict, "test.hd5", path="path/to")
+    >>> convert_numpytree_hdf5(tdict, "test.hd5", path="path/to", silent=False)
     writing hd5file test.hd5 from dict tree
      -path:
       -to:
@@ -116,7 +121,7 @@ def convert_hdf5_dict_tree(h5pyobj, path=()):
        -dir_a:
         ->data_b (4, 4)
     >>> h5pyobj = h5py.File("test.hd5", "r")
-    >>> data = convert_hdf5_dict_tree(h5pyobj['path/to'])
+    >>> data = convert_hdf5_dict_tree(h5pyobj['path/to'], silent=False)
      ->data_a (3, 3)
      -dir_a:
       ->data_b (4, 4)
@@ -124,7 +129,9 @@ def convert_hdf5_dict_tree(h5pyobj, path=()):
     >>> os.remove("test.hd5")
     """
     outdict = _traverse_hd5_dict(h5pyobj)
-    _print_dict_tree(outdict)
+
+    if not silent:
+        _print_dict_tree(outdict)
 
     return outdict
 
